@@ -10,4 +10,6 @@ type Recipient struct {
 	Number      string `json:"number"`      // the phone number of the recipient
 	Status      string `json:"status"`      // the status of the message delivery
 	StatusCode  int    `json:"statusCode"`  // the status code from the AfricasTalking API
+	Label       any
+	QuestionId  any
 }
