@@ -1,34 +1,37 @@
-package at
+package main
 
 import (
+	"fmt"
+	"github.com/MikeMwita/at/config"
 	"github.com/MikeMwita/at/domain/services"
+	"github.com/MikeMwita/at/infrastructure/adapters"
+	"github.com/joho/godotenv"
 	"log"
 	"net/http"
 )
 
 func main() {
-	// Load the configuration
-	//cfg, err := config.LoadConfig()
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
+	// Load environment variables from .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file:", err)
+	}
+
+	// Load configuration
+	cfg := config.LoadConfig()
 
 	// Create the SMS service
-	smsService := services.NewSMSService()
-
-	//// Create the SMS repository
-	//smsRepo, err := adapters.NewMySQLSMSAdapter(cfg.MySQL)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
+	smsService := services.NewSMSService(cfg.Username, cfg.APIKey, cfg.Env)
+	fmt.Println(cfg.Username, cfg.APIKey, cfg.Env)
 
 	// Create the SMS handler
-	smsHandler := adapters.NewHTTPSMSAdapter(smsService, smsRepo)
+	smsHandler := adapters.NewHTTPSMSHandler(smsService)
 
 	// Register the HTTP handler
-	http.HandleFunc("/sendSMS", smsHandler.SendSMS)
+	http.HandleFunc("/sendSMS", smsHandler.ServeHTTP)
 
 	// Start the HTTP server
-	log.Println("Starting the server on port", cfg.Port)
-	log.Fatal(http.ListenAndServe(":"+cfg.Port, nil))
+	addr := ":" + cfg.Port
+	log.Println("Starting the server on address", addr)
+	log.Fatal(http.ListenAndServe(addr, nil))
 }
