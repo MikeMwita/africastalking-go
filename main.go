@@ -2,10 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/MikeMwita/at/config"
-	"github.com/MikeMwita/at/domain/services"
-	"github.com/MikeMwita/at/infrastructure/adapters"
-	"github.com/joho/godotenv"
+	"github.com/MikeMwita/africastalking-go/config"
+
 	"log"
 	"net/http"
 )
