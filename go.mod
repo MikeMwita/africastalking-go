@@ -1,5 +1,3 @@
-module github.com/MikeMwita/at
+module github.com/MikeMwita/africastalking-go
 
-go 1.20
-
-require github.com/joho/godotenv v1.5.1 // indirect
+go 1.21.4
