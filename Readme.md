@@ -7,17 +7,19 @@
 </p>
 
 
-# africastalking-go
+#  African's Talking Go SDK
 
-A Go SDK for Africa's Talking, a platform that provides various communication and payment services in Africa.
+
+African's Talking Go SDK is a comprehensive Go library for interacting with the Africa's Talking API, a platform that provides various communication and payment services across Africa.
 
 ## Features
 
-- SMS: Send and receive SMS messages to and from any network in Africa
-- Voice: Make and receive voice calls, play media, and control the call flow
-- USSD: Create interactive menus and sessions for your users
-- Airtime: Send airtime to mobile subscribers across Africa
-- Payments: Accept and disburse payments via mobile money, card, and bank
+
+- **SMS**: Send and receive SMS messages to and from any network in Africa
+- **Voice**: Make and receive voice calls, play media, and control the call flow
+- **USSD**: Create interactive menus and sessions for your users
+- **Airtime**: Send airtime to mobile subscribers across Africa
+- **Payments**: Accept and disburse payments via mobile money, card, and bank
 
 
 ## Installation
@@ -92,5 +94,7 @@ export AT_TEST_USERNAME=YOUR_TEST_USERNAME # The username for your test account
 ```bash
 go test -cover ./...
 ```
+
+
 
 
