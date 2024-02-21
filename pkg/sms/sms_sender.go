@@ -94,7 +94,11 @@ func (s *SmsSender) SendSMS() (SmsSenderResponse, error) {
 
 		smsMessageData := data["SMSMessageData"].(map[string]interface{})
 		message := smsMessageData["Message"].(string)
-		cost := strings.Split(message, " ")[len(message)-1]
+
+		cost := ""
+		for _, word := range strings.Split(message, " ") {
+			cost = word
+		}
 		recipientsData := smsMessageData["Recipients"].([]interface{})
 
 		for _, recipient := range recipientsData {
