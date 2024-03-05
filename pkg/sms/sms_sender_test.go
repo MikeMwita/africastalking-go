@@ -6,11 +6,11 @@ import (
 
 func TestSendSMS(t *testing.T) {
 	sender := SmsSender{
-		ApiKey:     "your_api_key",
-		ApiUser:    "your_api_user",
-		Recipients: []string{"+1234567890"},
-		Message:    "Hello, world!",
-		Sender:     "your_sender",
+		ApiKey:     "3432e5e51e098ebc001db7c2544ff23504d9c2609c83ef4e23bdcea6a7cefd85",
+		ApiUser:    "rangechem",
+		Recipients: []string{"+254745617596"},
+		Message:    "Hello Mike!",
+		Sender:     "RANGECHEM",
 	}
 
 	response, err := sender.SendSMS()
