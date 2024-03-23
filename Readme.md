@@ -75,6 +75,11 @@ func main() {
 }
 ```
 
+
+
+## Contributing
+We encourage contributions from the community. If you’re interested in contributing to the African’s Talking Go SDK, please read our contribution guidelines.
+
 ## Testing
 
 To test the SDK, you need to have a test database and a test account with Africa's Talking. You also need to set some environment variables for the test configuration.
