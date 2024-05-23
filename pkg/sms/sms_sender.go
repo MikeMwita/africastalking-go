@@ -3,10 +3,12 @@ package sms
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type SmsSender struct {
@@ -140,4 +142,18 @@ func (s *SmsSender) SendSMS() (SmsSenderResponse, error) {
 	}
 
 	return smsSenderResponse, fmt.Errorf("status code: %d", res.StatusCode)
+}
+// Retry sends an SMS with exponential backoff
+func (s *SmsSender) RetrySendSMS(maxRetries int) (SmsSenderResponse, error) {
+	for retry := 0; retry < maxRetries; retry++ {
+			response, err := s.SendSMS()
+			if err == nil {
+					return response, nil
+			}
+
+			delay := time.Duration(1<<uint(retry)) * time.Second
+			time.Sleep(delay)
+	}
+
+	return SmsSenderResponse{}, fmt.Errorf("max retries reached")
 }
