@@ -1,135 +1,231 @@
 package sms
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 )
 
-func TestSendSMS(t *testing.T) {
-	sender := SmsSender{
-		ApiKey:     "",
-		ApiUser:    "",
-		Recipients: []string{"+254745617596"},
-		Message:    "",
-		Sender:     "",
-	}
+// Mock Doer to simulate HTTP client behavior
+type MockDoer struct {
+	Responses []*http.Response
+	Errors    []error
+	CallCount int
+}
 
-	response, err := sender.SendSMS()
-	if err != nil {
-		t.Errorf("error occurred: %v", err)
+func (m *MockDoer) Do(req *http.Request) (*http.Response, error) {
+	if m.CallCount >= len(m.Responses) {
+		return nil, fmt.Errorf("out of mock responses")
 	}
+	resp := m.Responses[m.CallCount]
+	err := m.Errors[m.CallCount]
+	m.CallCount++
+	return resp, err
+}
 
-	if response.ErrorResponse.HasError {
-		t.Errorf("error response received: %s", response.ErrorResponse.Message)
-	}
-
-	if len(response.SmsMessageData.Recipients) == 0 {
-		t.Errorf("no recipients received in response")
-	}
-
-	if response.SmsMessageData.Message == "" {
-		t.Errorf("empty message received in response")
+// Helper function to create a mock response
+func newMockResponse(statusCode int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: statusCode,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
 	}
 }
 
-func (s *SmsSender) MockSendSMS() (SmsSenderResponse, error) {
-	// Todo: Implement mock behavior
-	return SmsSenderResponse{
-		SmsMessageData: SmsMessageData{
-			Message: "Mocked success message",
-			Recipients: []Recipient{
-				{
-					Key:         "mock-recipient-key",
-					Cost:        "0.05",
-					SmsKey:      "mock-sms-key",
-					MessageId:   "mock-message-id",
-					MessagePart: 1,
-					Number:      "+254745617596",
-					Status:      "Success",
-					StatusCode:  "200",
-				},
+func TestSendSMS(t *testing.T) {
+	tests := []struct {
+		name            string
+		mockResponses   []*http.Response
+		mockErrors      []error
+		expectedMessage string
+		expectedError   bool
+	}{
+		{
+			name: "Success - Message sent",
+			mockResponses: []*http.Response{
+				newMockResponse(http.StatusCreated, `{
+					"SMSMessageData": {
+						"Message": "Sent",
+						"Recipients": [
+							{
+								"cost": "KES 0.80",
+								"messageId": "XYZ123",
+								"number": "+254745617596",
+								"status": "Success",
+								"statusCode": 200
+							}
+						]
+					}
+				}`),
 			},
+			mockErrors:      []error{nil},
+			expectedMessage: "Sent",
+			expectedError:   false,
 		},
-	}, nil
+		{
+			name: "Failure - Message not sent",
+			mockResponses: []*http.Response{
+				newMockResponse(http.StatusBadRequest, ""),
+			},
+			mockErrors:      []error{fmt.Errorf("bad request")},
+			expectedMessage: "",
+			expectedError:   true,
+		},
+		{
+			name: "Empty recipients list",
+			mockResponses: []*http.Response{
+				newMockResponse(http.StatusCreated, `{
+					"SMSMessageData": {
+						"Message": "Sent",
+						"Recipients": []
+					}
+				}`),
+			},
+			mockErrors:      []error{nil},
+			expectedMessage: "Sent",
+			expectedError:   false,
+		},
+		{
+			name: "Invalid JSON response format",
+			mockResponses: []*http.Response{
+				newMockResponse(http.StatusCreated, `{invalid-json}`),
+			},
+			mockErrors:      []error{nil},
+			expectedMessage: "",
+			expectedError:   true,
+		},
+		{
+			name: "Invalid recipient data",
+			mockResponses: []*http.Response{
+				newMockResponse(http.StatusCreated, `{
+					"SMSMessageData": {
+						"Message": "Sent",
+						"Recipients": [{}]
+					}
+				}`),
+			},
+			mockErrors:      []error{nil},
+			expectedMessage: "",
+			expectedError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &Client{
+				apiURL:     DefaultAPIURL,
+				apiKey:     "test-api-key",
+				apiUser:    "test-user",
+				httpClient: &MockDoer{Responses: tt.mockResponses, Errors: tt.mockErrors},
+			}
+
+			sender := &SmsSender{
+				Client:     client,
+				Recipients: []string{"+254745617596"},
+				Message:    "Hello, this is a test message",
+				Sender:     "TestSender",
+			}
+
+			ctx := context.Background()
+
+			response, err := sender.SendSMS(ctx)
+
+			if tt.expectedError && err == nil {
+				t.Errorf("expected error but got none")
+			}
+
+			if !tt.expectedError && err != nil {
+				t.Errorf("did not expect error but got: %v", err)
+			}
+
+			if response.SmsMessageData.Message != tt.expectedMessage {
+				t.Errorf("expected message: %s, got: %s", tt.expectedMessage, response.SmsMessageData.Message)
+			}
+		})
+	}
 }
 
 func TestRetrySendSMS(t *testing.T) {
-	sender := SmsSender{
-		ApiKey:     "your-api-key",
-		ApiUser:    "your-api-user",
-		Recipients: []string{"+254745617596"},
-		Message:    "Hello, this is a test message.",
-		Sender:     "YourSenderID",
-	}
-
-	maxRetries := 5
-
-	sender.SendSMS = sender.MockSendSMS
-
-	response, err := sender.RetrySendSMS(maxRetries)
-
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	if response.SmsMessageData.Message != "Mocked success message" {
-		t.Errorf("unexpected message received in response")
-	}
-}
-
-func TestRetrySendSMS_Success(t *testing.T) {
-	sender := SmsSender{
-		ApiKey:     "your-api-key",
-		ApiUser:    "your-api-user",
-		Recipients: []string{"+254745617596"},
-		Message:    "Hello, this is a test message.",
-		Sender:     "YourSenderID",
-	}
-
-	maxRetries := 5
-
-	retryCount := 0
-	sender.SendSMS = func() (SmsSenderResponse, error) {
-		if retryCount < 3 {
-			retryCount++
-			return SmsSenderResponse{}, fmt.Errorf("mocked error")
-		}
-		return SmsSenderResponse{
-			SmsMessageData: SmsMessageData{
-				Message: "Success!",
+	tests := []struct {
+		name          string
+		mockResponses []*http.Response
+		mockErrors    []error
+		maxRetries    int
+		expectedError bool
+		expectedMsg   string
+	}{
+		{
+			name: "Success after retry",
+			mockResponses: []*http.Response{
+				newMockResponse(http.StatusInternalServerError, ""),
+				newMockResponse(http.StatusCreated, `{
+					"SMSMessageData": {
+						"Message": "Sent",
+						"Recipients": [
+							{
+								"cost": "KES 0.80",
+								"messageId": "XYZ123",
+								"number": "+254745617596",
+								"status": "Success",
+								"statusCode": 200
+							}
+						]
+					}
+				}`),
 			},
-		}, nil
+			mockErrors:    []error{fmt.Errorf("internal error"), nil},
+			maxRetries:    3,
+			expectedError: false,
+			expectedMsg:   "Sent",
+		},
+		{
+			name: "Failure after retries",
+			mockResponses: []*http.Response{
+				newMockResponse(http.StatusInternalServerError, ""),
+				newMockResponse(http.StatusInternalServerError, ""),
+				newMockResponse(http.StatusInternalServerError, ""),
+			},
+			mockErrors:    []error{fmt.Errorf("internal error"), fmt.Errorf("internal error"), fmt.Errorf("internal error")},
+			maxRetries:    3,
+			expectedError: true,
+			expectedMsg:   "",
+		},
 	}
 
-	response, err := sender.RetrySendSMS(maxRetries)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &Client{
+				apiURL:     DefaultAPIURL,
+				apiKey:     "test-api-key",
+				apiUser:    "test-user",
+				httpClient: &MockDoer{Responses: tt.mockResponses, Errors: tt.mockErrors},
+			}
 
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+			sender := &SmsSender{
+				Client:     client,
+				Recipients: []string{"+254745617596"},
+				Message:    "Hello, this is a test message",
+				Sender:     "TestSender",
+			}
 
-	if response.SmsMessageData.Message != "Success!" {
-		t.Errorf("unexpected message received in response")
-	}
-}
+			ctx := context.Background()
 
-func TestRetrySendSMS_Failure(t *testing.T) {
-	sender := SmsSender{
-		ApiKey:     "your-api-key",
-		ApiUser:    "your-api-user",
-		Recipients: []string{"+254745617596"},
-		Message:    "Hello, this is a test message.",
-		Sender:     "YourSenderID",
-	}
+			response, err := sender.RetrySendSMS(ctx, tt.maxRetries)
 
-	maxRetries := 3
+			if tt.expectedError && err == nil {
+				t.Errorf("expected error but got none")
+			}
 
-	sender.SendSMS = func() (SmsSenderResponse, error) {
-		return SmsSenderResponse{}, fmt.Errorf("mocked error")
-	}
+			if !tt.expectedError && err != nil {
+				t.Errorf("did not expect error but got: %v", err)
+			}
 
-	_, err := sender.RetrySendSMS(maxRetries)
-
-	if err == nil {
-		t.Errorf("expected error, got nil")
+			if response.SmsMessageData.Message != tt.expectedMsg {
+				t.Errorf("expected message: %s, got: %s", tt.expectedMsg, response.SmsMessageData.Message)
+			}
+		})
 	}
 }
