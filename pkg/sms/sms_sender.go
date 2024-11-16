@@ -35,6 +35,9 @@ func (s *SmsSender) SendSMS(ctx context.Context) (SmsSenderResponse, error) {
 	if err != nil {
 		return SmsSenderResponse{}, fmt.Errorf("failed to send SMS: %w", err)
 	}
+	if res == nil {
+		return SmsSenderResponse{}, errors.New("unexpected empty response")
+	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusCreated {
